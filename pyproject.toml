@@ -17,8 +17,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "gymnasium>=1.0.0",
+    "matplotlib>=3.10.0",
+    "mplfinance>=0.12.10b0",
     "numpy>=2.2.1",
     "pandas>=2.2.3",
+    "plotly>=5.24.1",
     "rich>=13.9.4",
     "ta-lib>=0.6.0",
 ]
@@ -30,7 +34,12 @@ dependencies = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/rqt"]
 
+[tool.uv.sources]
+ccxt-easy-dl = { git = "https://github.com/raphant/ccxt-easy-dl.git" }
+
 [dependency-groups]
 dev = [
+    "ccxt-easy-dl",
+    "ipykernel>=6.29.5",
     "pytest>=8.3.4",
 ]

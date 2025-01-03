@@ -105,3 +105,76 @@ df = df.interpolate(method='linear')
 3. Consider the trade-off between window size and available training data
 4. Handle both normalized and pre-normalized data appropriately in your RL environment
 5. Use the step generator for efficient sequential data processing
+
+## Environment (`environment.py`)
+
+The Environment class provides a Gymnasium-compatible reinforcement learning environment for training and testing RL models. It works seamlessly with the DataProvider to create a complete RL training pipeline.
+
+### Key Features
+
+- Fully compatible with OpenAI Gymnasium interface
+- Integrated with DataProvider for time-series financial data
+- Built-in trade management through TradeManager
+- Customizable action and observation spaces
+- Configurable initial capital
+- Step-by-step environment progression with state management
+
+### Main Methods
+
+#### Core Environment Methods
+
+- `reset()` - Reset the environment to initial state
+- `step(action)` - Execute one step with given action
+- `_calculate_reward()` - Calculate reward for current step (customizable)
+
+#### Properties
+
+- `action_space` - Defines possible actions
+- `observation_space` - Defines state observation structure
+- `trade_manager` - Manages trading state and execution
+
+### Usage Examples
+
+```python
+import gymnasium as gym
+from gymnasium import spaces
+import numpy as np
+from rqt.rl.environment import Environment
+from rqt.rl.data_provider import DataProvider
+
+# Prepare your DataProvider
+dp = DataProvider(...)
+
+# Define your action and observation spaces
+action_space = spaces.Discrete(3)  # Example: Buy, Hold, Sell
+observation_space = spaces.Box(
+    low=-np.inf, 
+    high=np.inf, 
+    shape=(dp.window_size, 5)  # OHLCV data
+)
+
+# Initialize environment
+env = Environment(
+    data_provider=dp,
+    action_space=action_space,
+    observation_space=observation_space,
+    initial_capital=10000
+)
+
+# Use in training loop
+observation, info = env.reset()
+for _ in range(1000):
+    action = env.action_space.sample()  # Your agent's action here
+    observation, reward, done, truncated, info = env.step(action)
+    
+    if done:
+        observation, info = env.reset()
+```
+
+### Best Practices
+
+1. Customize the reward function (`_calculate_reward`) based on your trading strategy
+2. Choose appropriate action and observation spaces for your use case
+3. Consider using the trade manager's state in your reward calculation
+4. Monitor the environment's performance through logging
+5. Handle episode termination conditions appropriately

@@ -9,5 +9,12 @@ logging.basicConfig(
     handlers=[RichHandler(rich_tracebacks=True)],
 )
 
+class EfficientLogger(logging.Logger):
+    def debug(self, msg, *args, **kwargs):
+        if self.isEnabledFor(logging.DEBUG):
+            super().debug(msg, *args, **kwargs)
+
+logging.setLoggerClass(EfficientLogger)
+
 # Get the package logger
 logger = logging.getLogger(__name__)
