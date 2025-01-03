@@ -35,6 +35,7 @@ class TradeManager:
         self.initial_capital = initial_capital
         self.trades: list[Trade] = []
         self.dp = data_provider
+        self.all_prices: dict[pd.Timestamp, float] = self.dp.get_prices(column="close")
 
     @property
     def closed_trades(self):
@@ -78,69 +79,8 @@ class TradeManager:
     def last_completed_trade(self):
         return self.closed_trades[-1] if self.closed_trades else None
     
-    def calculate_open_capital(self, current_price: float):
-        """
-        Calculate the capital from open trades based on the current price.
-
-        Parameters:
-        current_price: The current price of the asset being traded.
-
-        Returns:
-        capital: The capital after accounting for unrealized profits from open trades.
-        """
-        capital = 0
-        for trade in self.open_trades:
-            if trade.close_price is None:
-                unrealized_profit = (current_price - trade.open_price) * (
-                    trade.stake_amount / trade.open_price
-                )
-                capital += unrealized_profit
-        return capital
-
-    def open_trade(
-        self, stake_amount: float, open_price: float, open_date: pd.Timestamp
-    ):
-        if stake_amount > self.closed_capital:
-            raise ValueError("Insufficient capital to open trade.")
-        logger.debug(
-            "Opening trade: stake_amount=%.2f, open_price=%.2f, open_date=%s",
-            stake_amount, open_price, open_date
-        )
-        new_trade = Trade(id=len(self.trades), stake_amount=stake_amount, open_price=open_price, open_date=open_date)
-        self.trades.append(new_trade)
-        logger.debug("Trade opened: %s", new_trade)
-
-    def close_trade(self, trade_id: int, close_price: float, close_date: pd.Timestamp):
-        try:
-            trade_idx = [t.id for t in self.trades].index(trade_id)
-        except ValueError:
-            raise ValueError(f"Trade with ID {trade_id} not found.")
-        
-        if not self.trades[trade_idx].is_open:
-            raise ValueError(f"Trade {trade_id} is already closed.")
-
-        self.trades[trade_idx].close_price = close_price
-        self.trades[trade_idx].close_date = close_date
-        
-        # Use lazy evaluation for logging - profit calculation only happens if debug is enabled
-        logger.debug("Trade %d closed: price=%.2f, profit=%.2f", 
-                    trade_id, close_price, self.trades[trade_idx].profit)
-
-    def calculate_sortino_ratio(self, risk_free_rate: float = 0.0):
-        closed_trades = self.closed_trades
-        if not closed_trades:
-            return 0
-        returns = [trade.profit for trade in closed_trades]
-        downside_returns = [min(0, r - risk_free_rate) for r in returns]
-        expected_return = sum(returns) / len(returns) - risk_free_rate
-        downside_deviation = (
-            sum(d**2 for d in downside_returns) / len(downside_returns)
-        ) ** 0.5
-        if downside_deviation == 0:
-            return float("inf")
-        return expected_return / downside_deviation
-
-    def calculate_max_drawdown(self) -> float:
+    @property
+    def max_drawdown(self) -> float:
         """Calculate the maximum drawdown percentage."""
         if not self.closed_trades:
             return 0.0
@@ -156,25 +96,9 @@ class TradeManager:
             max_drawdown = max(max_drawdown, drawdown)
         
         return max_drawdown * 100  # Convert to percentage
-
-    def calculate_sharpe_ratio(self, risk_free_rate: float = 0.0) -> float:
-        """Calculate the Sharpe ratio of the trading strategy."""
-        if not self.closed_trades:
-            return 0.0
-        
-        returns = [trade.profit for trade in self.closed_trades]
-        if not returns:
-            return 0.0
-        
-        avg_return = sum(returns) / len(returns)
-        std_dev = (sum((r - avg_return) ** 2 for r in returns) / len(returns)) ** 0.5
-        
-        if std_dev == 0:
-            return float('inf') if avg_return > 0 else float('-inf')
-        
-        return (avg_return - risk_free_rate) / std_dev
-
-    def calculate_profit_factor(self) -> float:
+    
+    @property
+    def profit_factor(self) -> float:
         """Calculate the profit factor (gross profit / gross loss)."""
         if not self.closed_trades:
             return 0.0
@@ -184,7 +108,8 @@ class TradeManager:
         
         return gross_profit / gross_loss if gross_loss != 0 else float('inf')
 
-    def calculate_volatility(self) -> float:
+    @property
+    def volatility(self) -> float:
         """Calculate the trading strategy's volatility (standard deviation of returns)."""
         if not self.closed_trades:
             return 0.0
@@ -197,7 +122,8 @@ class TradeManager:
         variance = sum((r - avg_return) ** 2 for r in returns) / len(returns)
         return variance ** 0.5
 
-    def calculate_market_correlation(self) -> float:
+    @property
+    def market_correlation(self) -> float:
         """Calculate correlation between strategy returns and market returns."""
         if not self.closed_trades or not hasattr(self.dp, '_pre_normalized_data'):
             return 0.0
@@ -231,6 +157,93 @@ class TradeManager:
             return 0.0
             
         return strategy_series.corr(market_series)
+    
+    def calculate_open_capital(self, current_date: pd.Timestamp):
+        """
+        Calculate the capital from open trades based on the current date.
+
+        Parameters:
+        current_date: The current date to calculate open capital for.
+
+        Returns:
+        capital: The capital after accounting for unrealized profits from open trades.
+        """
+        capital = 0
+        for trade in self.open_trades:
+            if trade.close_price is None:
+                current_price = self.all_prices[current_date]
+                unrealized_profit = (current_price - trade.open_price) * (
+                    trade.stake_amount / trade.open_price
+                )
+                capital += unrealized_profit
+        return capital
+
+    def open_trade(
+        self, stake_amount: float, open_date: pd.Timestamp
+    ):
+        if stake_amount > self.closed_capital:
+            raise ValueError("Insufficient capital to open trade.")
+
+        current_price = self.all_prices[open_date]
+        new_trade = Trade(id=len(self.trades), stake_amount=stake_amount, open_price=current_price, open_date=open_date)
+        self.trades.append(new_trade)
+
+    def close_trade(self, trade_id: int, close_date: pd.Timestamp):
+        """
+        Close a trade using the close price from the data provider for the given date.
+
+        Parameters:
+        trade_id: The ID of the trade to close
+        close_date: The date to close the trade on
+
+        Raises:
+        ValueError: If trade is not found or already closed
+        """
+        try:
+            trade_idx = [t.id for t in self.trades].index(trade_id)
+        except ValueError:
+            raise ValueError(f"Trade with ID {trade_id} not found.")
+        
+        if not self.trades[trade_idx].is_open:
+            raise ValueError(f"Trade {trade_id} is already closed.")
+
+        self.trades[trade_idx].close_price = self.all_prices[close_date]
+        self.trades[trade_idx].close_date = close_date
+
+    def calculate_sortino_ratio(self, risk_free_rate: float = 0.0):
+        closed_trades = self.closed_trades
+        if not closed_trades:
+            return 0
+        returns = [trade.profit for trade in closed_trades]
+        downside_returns = [min(0, r - risk_free_rate) for r in returns]
+        expected_return = sum(returns) / len(returns) - risk_free_rate
+        downside_deviation = (
+            sum(d**2 for d in downside_returns) / len(downside_returns)
+        ) ** 0.5
+        if downside_deviation == 0:
+            return float("inf")
+        return expected_return / downside_deviation
+
+    
+
+    def calculate_sharpe_ratio(self, risk_free_rate: float = 0.0) -> float:
+        """Calculate the Sharpe ratio of the trading strategy."""
+        if not self.closed_trades:
+            return 0.0
+        
+        returns = [trade.profit for trade in self.closed_trades]
+        if not returns:
+            return 0.0
+        
+        avg_return = sum(returns) / len(returns)
+        std_dev = (sum((r - avg_return) ** 2 for r in returns) / len(returns)) ** 0.5
+        
+        if std_dev == 0:
+            return float('inf') if avg_return > 0 else float('-inf')
+        
+        return (avg_return - risk_free_rate) / std_dev
+
+    
 
     def reset(self):
         # Reset the TradeManagement to its initial state

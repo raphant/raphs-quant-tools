@@ -38,7 +38,7 @@ TimeIndexType = Union[datetime.datetime, int]
 StepType = Tuple[pd.Timestamp, Union[np.ndarray, pd.DataFrame]]
 
 REQUIRED_COLUMNS = {"open", "high", "low", "close", "volume"}
-
+PRICE_COLUMNS = {"open", "high", "low", "close"}
 
 class DataProvider:
     """
@@ -82,7 +82,7 @@ class DataProvider:
             self._validate_start_date(start_date)
             self._start_date = start_date
         else:
-            self._start_date = self._normalized_data.index[0]
+            self._start_date = self._normalized_data.index[0 + self._window_size]
 
         logger.debug("📅 Start date set to %s", self._start_date)
 
@@ -270,4 +270,13 @@ class DataProvider:
             return self._pre_normalized_data.loc[index]
         return self._pre_normalized_data.iloc[index]
 
-    
+    def get_prices(self, column: str = "close") -> dict[pd.Timestamp, float]:
+        """
+        Get a dictionary mapping timestamps to close prices from the pre-normalized data.
+
+        Returns:
+            dict[pd.Timestamp, float]: Dictionary mapping timestamps to close prices
+        """
+        assert column in PRICE_COLUMNS, f"Column {column} is not in the required columns: {PRICE_COLUMNS}"
+        logger.debug("📊 Getting %s prices dictionary from pre-normalized data", column)
+        return self._pre_normalized_data[column].to_dict()

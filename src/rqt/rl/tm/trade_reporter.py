@@ -41,6 +41,8 @@ class TradeReporter:
             trades_summary.append(
                 {
                     "id": trade.id,
+                    "open_date": trade.open_date,
+                    "close_date": trade.close_date,
                     "stake": trade.stake_amount,
                     "open_price": trade.open_price,
                     "close_price": trade.close_price,
@@ -50,6 +52,8 @@ class TradeReporter:
 
         trade_table = Table(title="\n📜 Detailed Trade List", box=box.ROUNDED)
         trade_table.add_column("ID", justify="right", style="dim")
+        trade_table.add_column("Open Date", justify="right")
+        trade_table.add_column("Close Date", justify="right")
         trade_table.add_column("Stake ($)", justify="right")
         trade_table.add_column("Open Price", justify="right")
         trade_table.add_column("Close Price", justify="right")
@@ -66,6 +70,8 @@ class TradeReporter:
 
             trade_table.add_row(
                 str(trade["id"]),
+                trade["open_date"].strftime("%Y-%m-%d %H:%M"),
+                trade["close_date"].strftime("%Y-%m-%d %H:%M"),
                 f"{trade['stake']:.2f}",
                 f"{trade['open_price']:.2f}",
                 f"{trade['close_price']:.2f}",
@@ -133,14 +139,14 @@ class TradeReporter:
         )
 
         # Risk Metrics
-        table.add_row("📉 Max Drawdown", f"{self.tm.calculate_max_drawdown():.1f}%")
-        table.add_row("📊 Volatility", f"${self.tm.calculate_volatility():,.2f}")
-        table.add_row("📈 Profit Factor", f"{self.tm.calculate_profit_factor():.2f}")
+        table.add_row("📉 Max Drawdown", f"{self.tm.max_drawdown:.1f}%")
+        table.add_row("📊 Volatility", f"${self.tm.volatility:.2f}")
+        table.add_row("📈 Profit Factor", f"{self.tm.profit_factor:.2f}")
 
         # Performance Ratios
         table.add_row("📊 Sortino Ratio", f"{self.tm.calculate_sortino_ratio():.3f}")
         table.add_row("📊 Sharpe Ratio", f"{self.tm.calculate_sharpe_ratio():.3f}")
-        table.add_row("📊 Market Correlation", f"{self.tm.calculate_market_correlation():.2f}")
+        table.add_row("📊 Market Correlation", f"{self.tm.market_correlation:.2f}")
 
         if console:
             console.print(table)

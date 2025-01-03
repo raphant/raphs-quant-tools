@@ -28,6 +28,10 @@ class Environment(gym.Env):
 
         logger.debug("🎮 Initialized RL Environment with data window size: %d", self.dp.window_size)
 
+    @property
+    def current_price(self) -> float:
+        return self.dp.get_pre_normalized_data(self._current_date)['close']
+
     def open_trade(self, stake_amount: float) -> bool:
         """
         Open a new trade with the given stake amount.
@@ -39,9 +43,7 @@ class Environment(gym.Env):
             bool: True if trade was opened successfully, False otherwise
         """
         try:
-            current_price = self.dp.get_pre_normalized_data(self._current_date)['close']
-            self.trade_manager.open_trade(stake_amount, current_price, self._current_date)
-            logger.debug("🔓 Opened trade: stake=%.2f, price=%.2f", stake_amount, current_price)
+            self.trade_manager.open_trade(stake_amount, self._current_date)
             return True
         except ValueError as e:
             logger.debug("❌ Failed to open trade: %s", str(e))
@@ -58,20 +60,7 @@ class Environment(gym.Env):
             bool: True if trade was closed successfully, False otherwise
         """
         try:
-            current_price = self.dp.get_pre_normalized_data(self._current_date)['close']
-            self.trade_manager.close_trade(trade_id, current_price, self._current_date)
-            # Get the closed trade details from trade manager
-            closed_trade = self.trade_manager.last_completed_trade
-            profit_emoji = "📈" if closed_trade.profit > 0 else "📉"
-            logger.debug(
-                "%s Closed trade #%d: date=%s, price=%.2f | profit=%.2f (%.1f%%)", 
-                profit_emoji,
-                trade_id,
-                closed_trade.close_date,
-                current_price,
-                closed_trade.profit,
-                (closed_trade.profit / closed_trade.stake_amount) * 100
-            )
+            self.trade_manager.close_trade(trade_id, self._current_date)
             return True
         except ValueError as e:
             logger.debug("❌ Failed to close trade: %s", str(e))
