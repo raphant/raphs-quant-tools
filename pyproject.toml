@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rqt"
-version = "0.1.0"
+version = "0.1.0a0"
 authors = [
     { name = "Raphael Nanje", email = "rtnanje@gmail.com" },
 ]
@@ -13,17 +13,21 @@ readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: MIT License", 
     "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
 ]
 dependencies = [
     "gymnasium>=1.0.0",
+    "keras>=3.7.0",
     "matplotlib>=3.10.0",
     "mplfinance>=0.12.10b0",
     "numpy>=2.2.1",
     "pandas>=2.2.3",
     "plotly>=5.24.1",
+    "raphs-indicators",
     "rich>=13.9.4",
+    "scikit-learn>=1.6.0",
     "ta-lib>=0.6.0",
 ]
 
@@ -36,6 +40,7 @@ packages = ["src/rqt"]
 
 [tool.uv.sources]
 ccxt-easy-dl = { git = "https://github.com/raphant/ccxt-easy-dl.git" }
+raphs-indicators = { git = "https://github.com/raphant/raphs-indicators.git" }
 
 [dependency-groups]
 dev = [
