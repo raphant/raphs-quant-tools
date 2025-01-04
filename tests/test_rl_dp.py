@@ -8,7 +8,6 @@ from rqt.rl.data_provider import DataProvider
 from test_utils import create_mock_data
 
 
-
 def test_data_provider_non_datetime_index():
     # Create sample data with non-datetime index
     data = create_mock_data()
@@ -16,8 +15,9 @@ def test_data_provider_non_datetime_index():
 
     # Test that it raises ValueError when creating DataProvider
     with pytest.raises(ValueError):
-        DataProvider(normalized_data=data, 
-                    pre_normalized_data=data,
+        DataProvider(features=data, 
+                    normalized_features=data,
+                    prices=data,
                     window_size=5)
 
 def test_data_provider_insufficient_data_before_start_date():
@@ -28,8 +28,9 @@ def test_data_provider_insufficient_data_before_start_date():
 
     # Test that it raises ValueError when not enough data before start_date
     with pytest.raises(ValueError):
-        DataProvider(normalized_data=data,
-                    pre_normalized_data=data, 
+        DataProvider(features=data,
+                    normalized_features=data,
+                    prices=data,
                     window_size=window_size,
                     start_date=start_date)
 
@@ -37,8 +38,9 @@ def test_get_date_from_index():
     # Create sample data
     data = create_mock_data(n_periods=10)
     window_size = 5
-    dp = DataProvider(normalized_data=data,
-                     pre_normalized_data=data,
+    dp = DataProvider(features=data,
+                     normalized_features=data,
+                     prices=data,
                      window_size=window_size)
 
     # Test getting date from index
@@ -57,8 +59,9 @@ def test_get_step_npy():
     n_periods = 20
     window_size = 5
     data = create_mock_data(n_periods=n_periods)
-    dp = DataProvider(normalized_data=data, 
-                     pre_normalized_data=data,
+    dp = DataProvider(features=data, 
+                     normalized_features=data,
+                     prices=data,
                      window_size=window_size)
 
     # Test getting step by index
@@ -107,8 +110,9 @@ def test_get_step_df():
     n_periods = 20
     window_size = 5
     data = create_mock_data(n_periods=n_periods)
-    dp = DataProvider(normalized_data=data,
-                     pre_normalized_data=data, 
+    dp = DataProvider(features=data,
+                     normalized_features=data,
+                     prices=data,
                      window_size=window_size)
 
     # Test getting step by index
@@ -157,8 +161,9 @@ def test_step_generator_npy():
     n_periods = 20
     window_size = 5
     data = create_mock_data(n_periods=n_periods)
-    dp = DataProvider(normalized_data=data,
-                     pre_normalized_data=data,
+    dp = DataProvider(features=data,
+                     normalized_features=data,
+                     prices=data,
                      window_size=window_size)
 
     # Test default start index (window_size)
@@ -215,54 +220,94 @@ def test_missing_dates():
     
     # Attempt to create DataProvider with data containing gaps
     with pytest.raises(ValueError):
-        DataProvider(normalized_data=data,
-                    pre_normalized_data=data, 
+        DataProvider(features=data,
+                    normalized_features=data,
+                    prices=data,
                     window_size=5)
-        
 
-def test_get_pre_normalized_series():
-    """Test getting pre-normalized data as a pandas Series."""
+def test_get_normalized_features():
+    """Test getting normalized features as a pandas Series."""
     # Create sample data with known values
     n_periods = 20
     window_size = 5
     
     # Create mock data with technical indicators
-    data = create_mock_data(n_periods=n_periods)
+    features = create_mock_data(n_periods=n_periods)
+    normalized_features = features.copy()
+    prices = features.copy()
     
-    # Add some technical indicators
-    data['sma_5'] = data['close'].rolling(window=5).mean()
-    data['rsi_14'] = 50 + np.random.randn(n_periods) * 10  # Mock RSI values
-    data['macd'] = data['close'].ewm(span=12).mean() - data['close'].ewm(span=26).mean()
+    # Add some technical indicators to features
+    features['sma_5'] = features['close'].rolling(window=5).mean()
+    features['rsi_14'] = 50 + np.random.randn(n_periods) * 10  # Mock RSI values
+    features['macd'] = features['close'].ewm(span=12).mean() - features['close'].ewm(span=26).mean()
     
-    dp = DataProvider(normalized_data=data,
-                     pre_normalized_data=data, 
+    # Add normalized versions to normalized_features
+    normalized_features['sma_5'] = normalized_features['close'].rolling(window=5).mean()
+    normalized_features['rsi_14'] = 50 + np.random.randn(n_periods) * 10
+    normalized_features['macd'] = normalized_features['close'].ewm(span=12).mean() - normalized_features['close'].ewm(span=26).mean()
+    
+    dp = DataProvider(features=features,
+                     normalized_features=normalized_features,
+                     prices=prices,
                      window_size=window_size)
 
     # Test getting data by index
     test_index = 10
-    series = dp.get_pre_normalized_series(test_index)
+    series = dp.get_normalized_features(test_index)
     
     # Verify it returns a Series
     assert isinstance(series, pd.Series), f"Expected pd.Series but got {type(series)}"
     
-    # Verify values match original data
-    assert series['close'] == data.iloc[test_index]['close']
-    assert series['sma_5'] == data.iloc[test_index]['sma_5']
-    assert series['rsi_14'] == data.iloc[test_index]['rsi_14']
-    assert series['macd'] == data.iloc[test_index]['macd']
+    # Verify values match normalized features
+    assert series['close'] == normalized_features.iloc[test_index]['close']
+    assert series['sma_5'] == normalized_features.iloc[test_index]['sma_5']
+    assert series['rsi_14'] == normalized_features.iloc[test_index]['rsi_14']
+    assert series['macd'] == normalized_features.iloc[test_index]['macd']
     
     # Test getting data by date
-    test_date = data.index[test_index]
-    series_by_date = dp.get_pre_normalized_series(test_date)
+    test_date = normalized_features.index[test_index]
+    series_by_date = dp.get_normalized_features(test_date)
     
     # Verify values match when accessing by date
     pd.testing.assert_series_equal(series, series_by_date)
     
     # Test invalid index
     with pytest.raises(IndexError):
-        dp.get_pre_normalized_series(len(data) + 1)
+        dp.get_normalized_features(len(normalized_features) + 1)
         
     # Test invalid date
     invalid_date = pd.Timestamp('2025-01-01')
     with pytest.raises(KeyError):
-        dp.get_pre_normalized_series(invalid_date)
+        dp.get_normalized_features(invalid_date)
+
+def test_get_prices():
+    """Test getting price data."""
+    n_periods = 20
+    window_size = 5
+    
+    # Create mock data
+    features = create_mock_data(n_periods=n_periods)
+    normalized_features = features.copy()
+    prices = features.copy()
+    
+    dp = DataProvider(features=features,
+                     normalized_features=normalized_features,
+                     prices=prices,
+                     window_size=window_size)
+    
+    # Test getting close prices
+    close_prices = dp.get_prices('close')
+    assert isinstance(close_prices, dict)
+    assert len(close_prices) == n_periods
+    assert all(isinstance(k, pd.Timestamp) for k in close_prices.keys())
+    assert all(isinstance(v, (float, np.float64)) for v in close_prices.values())
+    
+    # Test getting other price columns
+    for col in ['open', 'high', 'low']:
+        prices_dict = dp.get_prices(col)
+        assert len(prices_dict) == n_periods
+        assert all(prices_dict[date] == prices[col][date] for date in prices.index)
+    
+    # Test invalid column
+    with pytest.raises(AssertionError):
+        dp.get_prices('invalid_column')

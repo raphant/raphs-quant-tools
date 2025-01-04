@@ -87,27 +87,26 @@ class TradeReporter:
         return trade_table
 
     def get_summary_table(
-        self, current_price: float = None, console: Optional["Console"] = None
+        self, current_date: pd.Timestamp = None, console: Optional["Console"] = None
     ) -> Optional["Table"]:
         """
         Generate a summary table of trading performance metrics.
 
         Args:
-            current_price: Optional current price for calculating open trade values
+            current_date: Optional current date for calculating open trade values
             console: Optional Rich Console instance for direct printing.
                     If None, returns the table object instead.
 
         Returns:
             Optional[Table]: Rich Table object if console is None, otherwise None
         """
-        ohlcv: pd.DataFrame = self.tm.dp._pre_normalized_data
         table = Table(title="📊 Trading Summary", box=box.ROUNDED)
         table.add_column("Metric", style="cyan")
         table.add_column("Value", justify="right", style="green")
 
         final_capital = self.tm.closed_capital
-        if self.tm.open_trades and current_price is not None:
-            final_capital += self.tm.calculate_open_capital(current_price)
+        if self.tm.open_trades and current_date is not None:
+            final_capital += self.tm.calculate_open_capital(current_date)
 
         # Calculate metrics
         closed_trades = self.tm.closed_trades

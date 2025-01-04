@@ -125,15 +125,12 @@ class TradeManager:
     @property
     def market_correlation(self) -> float:
         """Calculate correlation between strategy returns and market returns."""
-        if not self.closed_trades or not hasattr(self.dp, '_pre_normalized_data'):
-            return 0.0
-        
-        ohlcv = self.dp._pre_normalized_data
-        if ohlcv is None or ohlcv.empty:
+        if not self.closed_trades:
             return 0.0
         
         # Get market returns (using close prices)
-        market_returns = ohlcv['close'].pct_change().dropna()
+        market_prices = pd.Series(self.dp.get_prices('close'))
+        market_returns = market_prices.pct_change().dropna()
         
         # Get strategy returns for corresponding dates
         strategy_returns = []
@@ -224,8 +221,6 @@ class TradeManager:
             return float("inf")
         return expected_return / downside_deviation
 
-    
-
     def calculate_sharpe_ratio(self, risk_free_rate: float = 0.0) -> float:
         """Calculate the Sharpe ratio of the trading strategy."""
         if not self.closed_trades:
@@ -242,8 +237,6 @@ class TradeManager:
             return float('inf') if avg_return > 0 else float('-inf')
         
         return (avg_return - risk_free_rate) / std_dev
-
-    
 
     def reset(self):
         # Reset the TradeManagement to its initial state

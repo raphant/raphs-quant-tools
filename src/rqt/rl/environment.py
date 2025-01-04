@@ -30,7 +30,8 @@ class Environment(gym.Env):
 
     @property
     def current_price(self) -> float:
-        return self.dp.get_pre_normalized_data(self._current_date)['close']
+        """Get the current close price from the price data."""
+        return self.dp.get_prices('close')[self._current_date]
 
     def open_trade(self, stake_amount: float) -> bool:
         """
@@ -110,7 +111,7 @@ class Environment(gym.Env):
             
             return next_state, reward, done, truncated, {
                 "date": self._current_date,
-                "raw_state": self.dp.get_pre_normalized_data(self._current_date)
+                "raw_state": self.dp.get_normalized_features(self._current_date)
             }
             
         except StopIteration:
